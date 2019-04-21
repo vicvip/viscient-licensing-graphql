@@ -7,17 +7,17 @@ import { APP_SECRET, getUserId} from './utils';
 import { sign } from 'jsonwebtoken';
 import { resultKeyNameFromField } from "apollo-utilities";
 import mongoose from 'mongoose';
-import User from './models/Credential';
 
 const typeDefs = gql`
   type Query {
-    licenses(name: String): Licenses
+    licenses(username: String): Licenses
     login(username: String!, password: String!): LoginPayload
     history(username: String!): History
   }
 
   type Mutation {
     login(username: String!, password: String!): LoginPayload
+    activation(companyName: String!, domainName: String!, numberOfDays: Int): ActivationPayload
   }
 
   type Licenses {
@@ -35,8 +35,9 @@ const typeDefs = gql`
   type HistoryDetail {
     username: String,
     actionType: String,
+    domainName: String,
     dateCreated: String,
-    Items: License,
+    dateExpired: String
   }
 
   type Credit {
@@ -74,6 +75,12 @@ const typeDefs = gql`
     token: String,
     password: String
   }
+
+  type ActivationPayload {
+    response: String,
+    message: String,
+    companyName: String
+  }
 `;
 
 // login(email: "zxc@zxc.com", password: "zxczxc"){
@@ -91,13 +98,6 @@ const resolvers: IResolverObject = {
       var data = response.results.data;
       return data;
     },
-    login: async (_, args, { dataSources }) => {
-      //GET METHOD NOT IN USED
-      const result = await dataSources.licenseAPI.loginUser(args.username, args.password);
-      //const token = sign({ userId: result.username }, APP_SECRET);
-      const token = sign({ username: result.username }, APP_SECRET);
-      return {response: result.response, user: result.username, message: result.message, token: token };
-    },
     history: async (_, args, { dataSources }) => {
       const result = await dataSources.licenseAPI.findHistory(args.username);
       if(result.response === '404'){
@@ -108,25 +108,15 @@ const resolvers: IResolverObject = {
           historyDetail: null
         }
       }
-      // var asd;
-      // for (var key in result.history[0].items) {
-      //   if (result.history[0].items.hasOwnProperty(key)) {
-      //       console.log(key + " -> " + result.history[0].items[key]);
-      //   }
-      // }
-
-      // Object.keys(result.history[0].items).forEach(function(key, index) {
-      //   console.log(index);
-      //   console.log(key, result.history[0].items[key]);
-      // });
 
       let historyDetails:object[] = [];
       for (let i in result.history) {
         let historyDetail = {
           username: result.history[i].username,
           actionType: result.history[i].actionType,
-          dateCreated: new Date(result.history[i].dateCreated).toISOString(),
-          Items: result.history[i].items
+          domainName: result.history[i].domainName,
+          dateCreated: new Date(result.history[i].dateCreated).toISOString().split('.')[0],
+          dateExpired: new Date(result.history[i].dateExpired).toISOString().split('.')[0]
         };
         historyDetails.push(historyDetail);
      }
@@ -140,15 +130,17 @@ const resolvers: IResolverObject = {
     }
   },
   Mutation: {
-    // login: async (_, args, { dataSources }) => {
-    //   const result = await dataSources.licenseAPI.loginUser(args.username, args.password);
-    //   const token = sign({ username: result.username }, APP_SECRET);
-    //   return {response: result.response, user: result.username, message: result.message, token: token };
-    // }
     login: async (_, args, { dataSources }) => {
       const result = await dataSources.licenseAPI.findUser(args.username, args.password);
       const token = sign({ username: result.username }, APP_SECRET);
       return {response: result.response, username: result.username, message: result.message, token: token };
+    },
+    activation: async (_, args, {dataSources}) => {
+      const result = await dataSources.licenseAPI.activateLicense(args.companyName, args.domainName, args.numberOfDays);
+      if(result.code != 200){
+        return {}
+      }
+      return {response: result.code, message: result.results.message, companyName: args.companyName }
     }
   }
 };

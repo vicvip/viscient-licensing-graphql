@@ -5,21 +5,9 @@ const Schema = mongoose.Schema;
 export interface IHistory extends mongoose.Document {
     username: string,
     actionType: string,
-    items: Items,
-    dateCreated: string
-}
-
-interface Items {
-    VAppStreamerWS: number, 
-    VBrainObject: number, 
-    VAppTrafficIntensity: number, 
-    VAppPeopleCounter : number,
-    VAppStreamerTornado: number, 
-    VAppIllegalPark: number, 
-    VAppCounter: number, 
-    VAppFP: number, 
-    VAppAnalyticsTornado: number, 
-    VAppStreamerEventPush: number
+    domainName: string,
+    dateCreated: string,
+    dateExpired: string
 }
 
 const UserSchema = new Schema({
@@ -31,11 +19,15 @@ const UserSchema = new Schema({
     type: String,
     required: true
   },
-  items: {
-    type: Object,
+  domainName: {
+    type: String,
     required: false
   },
   dateCreated: {
+    type: String,
+    required: true
+  },
+  dateExpired: {
     type: String,
     required: true
   }

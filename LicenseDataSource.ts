@@ -8,10 +8,10 @@ export class LicenseDataSource extends RESTDataSource {
         this.baseURL = "https://viscientgateway.ddns.net:8899/";
     }
 
-    async queryLicense(name: string) {
+    async queryLicense(username: string) {
         var result = await this.post(
             'VLREST/v1/query_license',
-            `{"company_name":"${name}"}`
+            `{"company_name":"${username}"}`
         );
         var parsedResult = JSON.parse(result);
         return parsedResult;
@@ -21,8 +21,12 @@ export class LicenseDataSource extends RESTDataSource {
         //TODO
     }
 
-    async activateLicense(name: string, domain: string, numberOfDays: number) {
-        //TODO
+    async activateLicense(companyName: string, domainName: string, numberOfDays: number) {
+        var result = await this.post(
+            `/VLREST/v1/remote_activate_poc?company_name=${companyName}&company_name=${domainName}&number_of_days=${numberOfDays}`
+        );
+        var parsedResult = JSON.parse(result);
+        return parsedResult;
     }
 
     async loginUser(username: string, password: string){
