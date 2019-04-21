@@ -140,6 +140,10 @@ const resolvers: IResolverObject = {
       if(result.code != 200){
         return {}
       }
+
+      const actionType = 'activate poc'; 
+      const insertResult = await dataSources.licenseAPI.insertHistory(args.companyName, actionType, args.domainName, args.numberOfDays);
+      
       return {response: result.code, message: result.results.message, companyName: args.companyName }
     }
   }

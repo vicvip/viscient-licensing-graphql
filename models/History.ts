@@ -24,11 +24,11 @@ const UserSchema = new Schema({
     required: false
   },
   dateCreated: {
-    type: String,
+    type: Date,
     required: true
   },
   dateExpired: {
-    type: String,
+    type: Date,
     required: true
   }
 }, {collection: 'history'});

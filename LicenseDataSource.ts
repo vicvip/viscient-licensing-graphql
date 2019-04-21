@@ -80,6 +80,23 @@ export class LicenseDataSource extends RESTDataSource {
             }
         }
     }
+
+    async insertHistory(username: string, actionType: string, domainName: string, numberOfDays: number){
+        const newHistory = new History({
+            username: username,
+            actionType: actionType,
+            domainName: domainName,
+            dateCreated: new Date(),
+            dateExpired: new Date().setDate(new Date().getDate() + numberOfDays)
+        });
+
+        History.collection.insertOne(newHistory)
+            .then(a => 
+                {console.log(a)})
+                
+            .catch(error => 
+                {console.log(error)})
+    }
     
 }
 
