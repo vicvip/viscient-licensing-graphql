@@ -4,7 +4,8 @@ const Schema = mongoose.Schema;
 
 export interface ICredential extends mongoose.Document {
     username: string,
-    password: string
+    password: string,
+    type: string
 }
 
 // Create the User Schema.
@@ -15,6 +16,10 @@ const UserSchema = new Schema({
     unique: true
   },
   password: {
+    type: String,
+    required: true,
+  },
+  accountType: {
     type: String,
     required: true,
   }

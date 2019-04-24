@@ -17,8 +17,12 @@ export class LicenseDataSource extends RESTDataSource {
         return parsedResult;
     }
 
-    async renewLicense(name: string, domain: string, numberOfDays: number) {
-        //TODO
+    async extendLicense(companyName: string, domainName: string, numberOfDays: number) {
+        var result = await this.post(
+            `/VLREST/v1/extend_poc_license?company_name=${companyName}&company_name=${domainName}&number_of_days=${numberOfDays}`
+        );
+        var parsedResult = JSON.parse(result);
+        return parsedResult;
     }
 
     async activateLicense(companyName: string, domainName: string, numberOfDays: number) {
@@ -52,20 +56,27 @@ export class LicenseDataSource extends RESTDataSource {
             return {
                 response: '404', 
                 message: 'No such user found',
-                username: username 
+                user: user
             }
         } else {
             return {
                 response: '200',
                 message: 'user found',
-                username: username
+                user: user
             }
         }
     }
 
-    async findHistory(username: string){
-        const history = await History.find({username: username});
-        if(history.length < 1){
+    async findHistory(username: string, accountType: string){
+        let history;
+        if(accountType === 'admin'){
+            history = await History.find({});
+        } else {
+            history = await History.find({username: username});
+        }
+        //const history = await History.find({username: username});
+        //const history = await History.find({});
+        if(history == null){
             return{
                 response: '404',
                 message: 'No such user found in History collection',
@@ -90,14 +101,17 @@ export class LicenseDataSource extends RESTDataSource {
             dateExpired: new Date().setDate(new Date().getDate() + numberOfDays)
         });
 
-        History.collection.insertOne(newHistory)
+        let response = await History.collection.insertOne(newHistory)
             .then(a => 
-                {console.log(a)})
-                
+                {console.log(a); 
+                return {mongoDbResponse: 200, historyResult: newHistory};
+            })
             .catch(error => 
-                {console.log(error)})
+                {console.log(error); 
+                return {mongoDbResponse: 500};
+            })
+        return response;
     }
-    
 }
 
 function findUsers(username: string, password: string) {

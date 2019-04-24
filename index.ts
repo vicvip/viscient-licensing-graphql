@@ -7,17 +7,20 @@ import { APP_SECRET, getUserId} from './utils';
 import { sign } from 'jsonwebtoken';
 import { resultKeyNameFromField } from "apollo-utilities";
 import mongoose from 'mongoose';
+import {sendAutomatedEmail} from './mailJetClient';
+import { isMainThread } from "worker_threads";
 
 const typeDefs = gql`
   type Query {
     licenses(username: String): Licenses
     login(username: String!, password: String!): LoginPayload
-    history(username: String!): History
+    history(username: String!, accountType: String!): History
   }
 
   type Mutation {
     login(username: String!, password: String!): LoginPayload
     activation(companyName: String!, domainName: String!, numberOfDays: Int): ActivationPayload
+    extension(companyName: String!, domainName: String!, numberOfDays: Int): ActivationPayload
   }
 
   type Licenses {
@@ -33,6 +36,7 @@ const typeDefs = gql`
   }
 
   type HistoryDetail {
+    id: String,
     username: String,
     actionType: String,
     domainName: String,
@@ -73,13 +77,16 @@ const typeDefs = gql`
     message: String,
     username: String,
     token: String,
-    password: String
+    password: String,
+    accountType: String
   }
 
   type ActivationPayload {
     response: String,
     message: String,
-    companyName: String
+    companyName: String,
+    mongoDbResponse: String,
+    mailJetResponse: String
   }
 `;
 
@@ -99,7 +106,7 @@ const resolvers: IResolverObject = {
       return data;
     },
     history: async (_, args, { dataSources }) => {
-      const result = await dataSources.licenseAPI.findHistory(args.username);
+      const result = await dataSources.licenseAPI.findHistory(args.username, args.accountType);
       if(result.response === '404'){
         return {
           response: result.response,
@@ -112,6 +119,7 @@ const resolvers: IResolverObject = {
       let historyDetails:object[] = [];
       for (let i in result.history) {
         let historyDetail = {
+          id: result.history[i]._id,
           username: result.history[i].username,
           actionType: result.history[i].actionType,
           domainName: result.history[i].domainName,
@@ -132,19 +140,51 @@ const resolvers: IResolverObject = {
   Mutation: {
     login: async (_, args, { dataSources }) => {
       const result = await dataSources.licenseAPI.findUser(args.username, args.password);
-      const token = sign({ username: result.username }, APP_SECRET);
-      return {response: result.response, username: result.username, message: result.message, token: token };
+      if(result.response === '404'){
+        return {
+          response: result.response, username: args.username, message: result.message
+        }
+      }
+      const token = sign({ username: args.username }, APP_SECRET);
+      return {response: result.response, username: args.username, message: result.message, token: token, accountType: result.user[0].accountType };
     },
     activation: async (_, args, {dataSources}) => {
-      const result = await dataSources.licenseAPI.activateLicense(args.companyName, args.domainName, args.numberOfDays);
-      if(result.code != 200){
+      const resultAPI = await dataSources.licenseAPI.activateLicense(args.companyName, args.domainName, args.numberOfDays);
+      if(resultAPI.code != 200){
         return {}
       }
-
       const actionType = 'activate poc'; 
       const insertResult = await dataSources.licenseAPI.insertHistory(args.companyName, actionType, args.domainName, args.numberOfDays);
-      
-      return {response: result.code, message: result.results.message, companyName: args.companyName }
+      if(insertResult.mongoDbResponse != 200){
+        return {}
+      }
+      const sendEmailResponse = sendAutomatedEmail(insertResult.historyResult);
+      return {
+        response: resultAPI.code, 
+        message: resultAPI.results.message, 
+        companyName: args.companyName,
+        mongoDbResponse: insertResult.mongoDbResponse,
+        mailJetResponse: sendEmailResponse
+       }
+    },
+    extension: async (_, args, {dataSources}) => {
+      const resultAPI = await dataSources.licenseAPI.extendLicense(args.companyName, args.domainName, args.numberOfDays);
+      if(resultAPI.code != 200){
+        return {}
+      }
+      const actionType = 'extend poc'; 
+      const insertResult = await dataSources.licenseAPI.insertHistory(args.companyName, actionType, args.domainName, args.numberOfDays);
+      if(insertResult.mongoDbResponse != 200){
+        return {}
+      }
+      const sendEmailResponse = sendAutomatedEmail(insertResult.historyResult);
+      return {
+        response: resultAPI.code, 
+        message: resultAPI.results.message, 
+        companyName: args.companyName,
+        mongoDbResponse: insertResult.mongoDbResponse,
+        mailJetResponse: sendEmailResponse
+       }
     }
   }
 };

@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const Schema = mongoose.Schema;
 
 export interface IHistory extends mongoose.Document {
+    _id: string,
     username: string,
     actionType: string,
     domainName: string,
@@ -11,6 +12,10 @@ export interface IHistory extends mongoose.Document {
 }
 
 const UserSchema = new Schema({
+  _id: {
+    type: String,
+    required: true
+  },
   username: {
     type: String,
     required: true
