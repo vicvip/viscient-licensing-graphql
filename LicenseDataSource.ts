@@ -33,25 +33,27 @@ export class LicenseDataSource extends RESTDataSource {
         return parsedResult;
     }
 
-    async loginUser(username: string, password: string){
-        var user = findUsers(username, password);
-        if(user == null || user === null){
-            return { 
-                response: '404', 
-                message: 'No such user found',
-                username: username 
-            }
-            //throw new Error('No such user found')
-        }
-        return {
-            response: '200',
-            message: 'user found',
-            username: username
-        }
-    }
+    // async loginUser(username: string, password: string){
+    //     var user = findUsers(username, password);
+    //     if(user == null || user === null){
+    //         return { 
+    //             response: '404', 
+    //             message: 'No such user found',
+    //             username: username 
+    //         }
+    //     }
+    //     return {
+    //         response: '200',
+    //         message: 'user found',
+    //         username: username
+    //     }
+    // }
 
-    async findUser(username: string, password: string){
-        const user = await Credential.find({username: username, password: password});
+    async findUser(isSubscription: boolean, username: string, password: string){
+        const user = isSubscription 
+                    ? await Credential.find({username: username}) 
+                    : await Credential.find({username: username, password: password});
+                    
         if(user.length < 1){
             return {
                 response: '404', 
@@ -74,8 +76,6 @@ export class LicenseDataSource extends RESTDataSource {
         } else {
             history = await History.find({username: username});
         }
-        //const history = await History.find({username: username});
-        //const history = await History.find({});
         if(history == null){
             return{
                 response: '404',
@@ -103,7 +103,7 @@ export class LicenseDataSource extends RESTDataSource {
 
         let response = await History.collection.insertOne(newHistory)
             .then(a => 
-                {console.log(a); 
+                {//console.log(a); 
                 return {mongoDbResponse: 200, historyResult: newHistory};
             })
             .catch(error => 
@@ -111,6 +111,29 @@ export class LicenseDataSource extends RESTDataSource {
                 return {mongoDbResponse: 500};
             })
         return response;
+    }
+
+    async decrementPocLicense(companyName: string, accountType: string){
+        if(accountType === 'admin'){
+            return {response: '200', message: 'admin account, disregard decrementation'}
+        }
+
+        const updateResult = Credential.collection.findOneAndUpdate(
+        {
+            username: companyName
+        },
+        {
+            $inc: { pocLicenseCounter: -1 }
+        })
+        
+        return updateResult.then(doc => {
+            console.log(doc)
+            return {response: '200', message: `sucessfully decrement poc license counter for ${companyName}`}
+          })
+          .catch(err => {
+            console.error(err)
+            return {response: '500', message: `failed decrementing poc license counter for ${companyName}`}
+          })
     }
 }
 

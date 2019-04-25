@@ -1,11 +1,13 @@
 import mongoose from "mongoose";
+import { Int32 } from "bson";
 
 const Schema = mongoose.Schema;
 
 export interface ICredential extends mongoose.Document {
     username: string,
     password: string,
-    type: string
+    type: string,
+    pocLicenseCounter: number,
 }
 
 // Create the User Schema.
@@ -22,6 +24,10 @@ const UserSchema = new Schema({
   accountType: {
     type: String,
     required: true,
+  },
+  pocLicenseCounter:{
+    type: Number,
+    required: true
   }
 }, {collection: 'credentials'});
 

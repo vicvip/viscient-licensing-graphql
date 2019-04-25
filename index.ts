@@ -1,4 +1,4 @@
-import { ApolloServer, gql, IResolverObject } from "apollo-server";
+import { ApolloServer, gql, IResolverObject, PubSub } from "apollo-server";
 import fetch from "node-fetch";
 import { RandomUserDataSource } from "./RandomUserDataSource";
 import { LicenseDataSource } from "./LicenseDataSource";
@@ -19,8 +19,12 @@ const typeDefs = gql`
 
   type Mutation {
     login(username: String!, password: String!): LoginPayload
-    activation(companyName: String!, domainName: String!, numberOfDays: Int): ActivationPayload
-    extension(companyName: String!, domainName: String!, numberOfDays: Int): ActivationPayload
+    activation(companyName: String!, domainName: String!, numberOfDays: Int, accountType: String): ActivationPayload
+    extension(companyName: String!, domainName: String!, numberOfDays: Int, accountType: String): ActivationPayload
+  }
+
+  type Subscription {
+    pocCounterMutated: LoginPayload
   }
 
   type Licenses {
@@ -78,7 +82,8 @@ const typeDefs = gql`
     username: String,
     token: String,
     password: String,
-    accountType: String
+    accountType: String,
+    pocLicenseCounter: Int,
   }
 
   type ActivationPayload {
@@ -86,7 +91,8 @@ const typeDefs = gql`
     message: String,
     companyName: String,
     mongoDbResponse: String,
-    mailJetResponse: String
+    mailJetResponse: String,
+    decrementResponse: String,
   }
 `;
 
@@ -97,6 +103,8 @@ const typeDefs = gql`
 //     name
 //     email
 //   }
+
+const POC_COUNTER_MUTATED = 'pocCounterMutated'
 
 const resolvers: IResolverObject = {
   Query: {
@@ -139,16 +147,26 @@ const resolvers: IResolverObject = {
   },
   Mutation: {
     login: async (_, args, { dataSources }) => {
-      const result = await dataSources.licenseAPI.findUser(args.username, args.password);
+      const result = await dataSources.licenseAPI.findUser(false, args.username, args.password);
       if(result.response === '404'){
         return {
           response: result.response, username: args.username, message: result.message
         }
       }
       const token = sign({ username: args.username }, APP_SECRET);
-      return {response: result.response, username: args.username, message: result.message, token: token, accountType: result.user[0].accountType };
+
+      const payLoad = {
+        response: result.response, 
+        username: args.username, 
+        message: result.message, 
+        token: token, 
+        accountType: result.user[0].accountType,
+        pocLicenseCounter: result.user[0].pocLicenseCounter,
+      }
+      
+      return payLoad;
     },
-    activation: async (_, args, {dataSources}) => {
+    activation: async (_, args, {dataSources, pubsub}) => {
       const resultAPI = await dataSources.licenseAPI.activateLicense(args.companyName, args.domainName, args.numberOfDays);
       if(resultAPI.code != 200){
         return {}
@@ -158,14 +176,30 @@ const resolvers: IResolverObject = {
       if(insertResult.mongoDbResponse != 200){
         return {}
       }
-      const sendEmailResponse = sendAutomatedEmail(insertResult.historyResult);
+      const decrementResponse = await dataSources.licenseAPI.decrementPocLicense(args.companyName, args.accountType);
+      const sendEmailResponse = await sendAutomatedEmail(insertResult.historyResult);
+
+      const resultLogin = await dataSources.licenseAPI.findUser(true, args.companyName, '');
+      const LoginPayload = {
+        response: resultLogin.response, 
+        username: args.companyName, 
+        message: resultLogin.message,
+        accountType: resultLogin.user[0].accountType,
+        pocLicenseCounter: resultLogin.user[0].pocLicenseCounter,
+      }
+
+      pubsub.publish(POC_COUNTER_MUTATED, {
+        pocCounterMutated: LoginPayload
+      });
+
       return {
         response: resultAPI.code, 
         message: resultAPI.results.message, 
         companyName: args.companyName,
         mongoDbResponse: insertResult.mongoDbResponse,
-        mailJetResponse: sendEmailResponse
-       }
+        mailJetResponse: sendEmailResponse.response,
+        decrementResponse: decrementResponse.response
+      };
     },
     extension: async (_, args, {dataSources}) => {
       const resultAPI = await dataSources.licenseAPI.extendLicense(args.companyName, args.domainName, args.numberOfDays);
@@ -177,7 +211,23 @@ const resolvers: IResolverObject = {
       if(insertResult.mongoDbResponse != 200){
         return {}
       }
+      const decrementResponse = await dataSources.licenseAPI.decrementPocLicense(args.companyName, args.accountType);
       const sendEmailResponse = sendAutomatedEmail(insertResult.historyResult);
+
+      const resultLogin = await dataSources.licenseAPI.findUser(true, args.companyName, '');
+      const LoginPayload = {
+        response: resultLogin.response, 
+        username: args.companyName, 
+        message: resultLogin.message,
+        accountType: resultLogin.user[0].accountType,
+        pocLicenseCounter: resultLogin.user[0].pocLicenseCounter,
+        decrementResponse: decrementResponse.response
+      }
+
+      pubsub.publish(POC_COUNTER_MUTATED, {
+        pocCounterMutated: LoginPayload
+      });
+
       return {
         response: resultAPI.code, 
         message: resultAPI.results.message, 
@@ -185,6 +235,11 @@ const resolvers: IResolverObject = {
         mongoDbResponse: insertResult.mongoDbResponse,
         mailJetResponse: sendEmailResponse
        }
+    }
+  },
+  Subscription: {
+    pocCounterMutated: {
+      subscribe: (_, __, {pubsub}) => pubsub.asyncIterator(POC_COUNTER_MUTATED)
     }
   }
 };
@@ -200,6 +255,8 @@ mongoose
   .then(() => console.log("MongoDB connected"))
   .catch(err => console.log(err));
 
+const pubsub = new PubSub();
+
 const server = new ApolloServer({
   typeDefs,
   resolvers,
@@ -208,7 +265,8 @@ const server = new ApolloServer({
   dataSources: () => ({
     randomUserAPI: new RandomUserDataSource(),
     licenseAPI: new LicenseDataSource()
-  })
+  }),
+  context: ({req, res}) => ({req,res,pubsub})
 });
 
 server.listen().then(({ url }) => {

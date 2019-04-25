@@ -1,7 +1,6 @@
 import { connect } from 'node-mailjet';
 
-export function sendAutomatedEmail(historyResult: any){
-    console.log(historyResult)
+export async function sendAutomatedEmail(historyResult: any){
     const connection = connect('a69cb7f74803eeeed3c31b28a62a8642', '1998b948eba95af112065aa042ceb838');
 
     const constructMessageSubject =    `A new "${historyResult.actionType}" has been triggered from ${historyResult.username}`
@@ -34,14 +33,14 @@ export function sendAutomatedEmail(historyResult: any){
         ]
     })
 
-    sendAutomatedEmail
+    return sendAutomatedEmail
     .then((result:any ) => {
-        console.log(result.body);
-        return result.body.Messages[0].Status;
+        //console.log(result.body.Messages[0].Status);
+        return {response: '200', message: result.body.Messages[0].Status};
     })
     .catch((err:any) => {
-        console.log(err.statusCode);
-        return err.statusCode
+        //console.log(err.statusCode);
+        return {response: err.statusCode, message: err};
     })
 }
 
