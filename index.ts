@@ -13,7 +13,7 @@ import { isMainThread } from "worker_threads";
 const typeDefs = gql`
   type Query {
     licenses(username: String): Licenses
-    login(username: String!, password: String!): LoginPayload
+    getCounter(username: String!): LoginPayload
     history(username: String!, accountType: String!): History
   }
 
@@ -143,6 +143,17 @@ const resolvers: IResolverObject = {
         username: result.username,
         historyDetail: historyDetails
       };
+    },
+    getCounter: async(_, args, {dataSources}) => {
+      const resultLogin = await dataSources.licenseAPI.findUser(true, args.username, '');
+      const LoginPayload = {
+        response: resultLogin.response, 
+        username: args.username, 
+        message: resultLogin.message,
+        accountType: resultLogin.user[0].accountType,
+        pocLicenseCounter: resultLogin.user[0].pocLicenseCounter,
+      }
+      return LoginPayload;
     }
   },
   Mutation: {
