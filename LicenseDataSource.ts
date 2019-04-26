@@ -53,7 +53,7 @@ export class LicenseDataSource extends RESTDataSource {
         const user = isSubscription 
                     ? await Credential.find({username: username}) 
                     : await Credential.find({username: username, password: password});
-                    
+
         if(user.length < 1){
             return {
                 response: '404', 
@@ -72,9 +72,9 @@ export class LicenseDataSource extends RESTDataSource {
     async findHistory(username: string, accountType: string){
         let history;
         if(accountType === 'admin'){
-            history = await History.find({});
+            history = await History.find({}).sort({dateCreated: -1});
         } else {
-            history = await History.find({username: username});
+            history = await History.find({username: username}).sort({dateCreated: -1});
         }
         if(history == null){
             return{
@@ -127,7 +127,7 @@ export class LicenseDataSource extends RESTDataSource {
         })
         
         return updateResult.then(doc => {
-            console.log(doc)
+            //console.log(doc)
             return {response: '200', message: `sucessfully decrement poc license counter for ${companyName}`}
           })
           .catch(err => {

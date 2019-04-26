@@ -1,4 +1,4 @@
-import { ApolloServer, gql, IResolverObject, PubSub } from "apollo-server";
+import { ApolloServer, gql, IResolverObject, PubSub, withFilter  } from "apollo-server";
 import fetch from "node-fetch";
 import { RandomUserDataSource } from "./RandomUserDataSource";
 import { LicenseDataSource } from "./LicenseDataSource";
@@ -25,6 +25,7 @@ const typeDefs = gql`
 
   type Subscription {
     pocCounterMutated: LoginPayload
+    historyMutated(username: String, accountType: String): HistoryDetail
   }
 
   type Licenses {
@@ -104,7 +105,8 @@ const typeDefs = gql`
 //     email
 //   }
 
-const POC_COUNTER_MUTATED = 'pocCounterMutated'
+const POC_COUNTER_MUTATED = 'pocCounterMutated';
+const HISTORY_MUTATED = 'historyMutated'
 
 const resolvers: IResolverObject = {
   Query: {
@@ -187,8 +189,9 @@ const resolvers: IResolverObject = {
       if(insertResult.mongoDbResponse != 200){
         return {}
       }
+      const newHistory = insertResult.historyResult;
       const decrementResponse = await dataSources.licenseAPI.decrementPocLicense(args.companyName, args.accountType);
-      const sendEmailResponse = await sendAutomatedEmail(insertResult.historyResult);
+      const sendEmailResponse = await sendAutomatedEmail(newHistory);
 
       const resultLogin = await dataSources.licenseAPI.findUser(true, args.companyName, '');
       const LoginPayload = {
@@ -201,6 +204,19 @@ const resolvers: IResolverObject = {
 
       pubsub.publish(POC_COUNTER_MUTATED, {
         pocCounterMutated: LoginPayload
+      });
+
+      const historyMutatedPayload = {
+        id: newHistory._id,
+        username: newHistory.username,
+        actionType: newHistory.actionType,
+        domainName: newHistory.domainName,
+        dateCreated: new Date(newHistory.dateCreated).toISOString().split('.')[0],
+        dateExpired: new Date(newHistory.dateExpired).toISOString().split('.')[0]
+      }
+
+      pubsub.publish(HISTORY_MUTATED, {
+        historyMutated: historyMutatedPayload
       });
 
       return {
@@ -222,8 +238,9 @@ const resolvers: IResolverObject = {
       if(insertResult.mongoDbResponse != 200){
         return {}
       }
+      const newHistory = insertResult.historyResult;
       const decrementResponse = await dataSources.licenseAPI.decrementPocLicense(args.companyName, args.accountType);
-      const sendEmailResponse = sendAutomatedEmail(insertResult.historyResult);
+      const sendEmailResponse = await sendAutomatedEmail(newHistory);
 
       const resultLogin = await dataSources.licenseAPI.findUser(true, args.companyName, '');
       const LoginPayload = {
@@ -231,12 +248,24 @@ const resolvers: IResolverObject = {
         username: args.companyName, 
         message: resultLogin.message,
         accountType: resultLogin.user[0].accountType,
-        pocLicenseCounter: resultLogin.user[0].pocLicenseCounter,
-        decrementResponse: decrementResponse.response
-      }
+        pocLicenseCounter: resultLogin.user[0].pocLicenseCounter
+      };
 
       pubsub.publish(POC_COUNTER_MUTATED, {
         pocCounterMutated: LoginPayload
+      });
+
+      const historyMutatedPayload = {
+        id: newHistory._id,
+        username: newHistory.username,
+        actionType: newHistory.actionType,
+        domainName: newHistory.domainName,
+        dateCreated: new Date(newHistory.dateCreated).toISOString().split('.')[0],
+        dateExpired: new Date(newHistory.dateExpired).toISOString().split('.')[0]
+      }
+
+      pubsub.publish(HISTORY_MUTATED, {
+        historyMutated: historyMutatedPayload
       });
 
       return {
@@ -244,13 +273,23 @@ const resolvers: IResolverObject = {
         message: resultAPI.results.message, 
         companyName: args.companyName,
         mongoDbResponse: insertResult.mongoDbResponse,
-        mailJetResponse: sendEmailResponse
+        mailJetResponse: sendEmailResponse.response,
+        decrementResponse: decrementResponse.response
        }
     }
   },
   Subscription: {
     pocCounterMutated: {
       subscribe: (_, __, {pubsub}) => pubsub.asyncIterator(POC_COUNTER_MUTATED)
+    },
+    historyMutated: {
+      subscribe: withFilter((_, __, {pubsub}) => pubsub.asyncIterator(HISTORY_MUTATED), 
+      (payLoad, args) => {  
+        if(args.accountType === 'admin'){
+          return true;
+        } 
+        return payLoad.historyMutated.username === args.username
+      })
     }
   }
 };
