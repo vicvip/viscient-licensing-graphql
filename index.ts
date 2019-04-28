@@ -309,7 +309,7 @@ const pubsub = new PubSub();
 
 const server = new ApolloServer({
   typeDefs,
-  resolvers,
+  resolvers: resolvers as any,
   introspection: true,
   playground: true,
   dataSources: () => ({
