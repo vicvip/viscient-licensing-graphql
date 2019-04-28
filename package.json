@@ -21,7 +21,8 @@
     "jsonwebtoken": "^8.5.1",
     "mongoose": "5.4.0",
     "node-fetch": "^2.2.0",
-    "node-mailjet": "^3.3.1"
+    "node-mailjet": "^3.3.1",
+    "ts-node": "^8.1.0"
   },
   "scripts": {
     "start": "ts-node index.ts",
