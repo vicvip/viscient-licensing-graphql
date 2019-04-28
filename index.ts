@@ -133,8 +133,8 @@ const resolvers: IResolverObject = {
           username: result.history[i].username,
           actionType: result.history[i].actionType,
           domainName: result.history[i].domainName,
-          dateCreated: new Date(result.history[i].dateCreated).toISOString().split('.')[0],
-          dateExpired: new Date(result.history[i].dateExpired).toISOString().split('.')[0]
+          dateCreated: new Date(result.history[i].dateCreated).toISOString(),
+          dateExpired: new Date(result.history[i].dateExpired).toISOString()
         };
         historyDetails.push(historyDetail);
      }
@@ -211,8 +211,8 @@ const resolvers: IResolverObject = {
         username: newHistory.username,
         actionType: newHistory.actionType,
         domainName: newHistory.domainName,
-        dateCreated: new Date(newHistory.dateCreated).toISOString().split('.')[0],
-        dateExpired: new Date(newHistory.dateExpired).toISOString().split('.')[0]
+        dateCreated: new Date(newHistory.dateCreated).toISOString(),
+        dateExpired: new Date(newHistory.dateExpired).toISOString()
       }
 
       pubsub.publish(HISTORY_MUTATED, {
@@ -260,8 +260,8 @@ const resolvers: IResolverObject = {
         username: newHistory.username,
         actionType: newHistory.actionType,
         domainName: newHistory.domainName,
-        dateCreated: new Date(newHistory.dateCreated).toISOString().split('.')[0],
-        dateExpired: new Date(newHistory.dateExpired).toISOString().split('.')[0]
+        dateCreated: new Date(newHistory.dateCreated).toISOString(),
+        dateExpired: new Date(newHistory.dateExpired).toISOString()
       }
 
       pubsub.publish(HISTORY_MUTATED, {
