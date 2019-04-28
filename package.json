@@ -1,5 +1,5 @@
 {
-  "name": "apollo-datasource-rest-example",
+  "name": "viscient-licensing-graphql",
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
@@ -25,5 +25,8 @@
   "scripts": {
     "start": "nodemon --exec ts-node index.ts",
     "build": "tsc"
+  },
+  "engines": {
+    "node": "10.15.3"
   }
 }
